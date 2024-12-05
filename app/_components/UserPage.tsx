@@ -12,7 +12,8 @@ function collectSentimentScores(entries) {
 
 
 export default function UserComponent() {
-  const { entries } = useJournalStore();
+  // const { entries } = useJournalStore();
+  const {entries} = dummyDeepgramResponse3
   
   
   // const sentimentScore = collectSentimentScores(dummyDeepgramResponse3.entries)
