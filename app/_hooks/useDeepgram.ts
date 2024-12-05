@@ -1,287 +1,232 @@
 "use client";
 
-import {
-  createClient,
-  LiveClient,
-  LiveTranscriptionEvents,
-} from "@deepgram/sdk";
-import { useQueue } from "@uidotdev/usehooks";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { createClient } from "@deepgram/sdk";
+import { useState, useCallback, useRef } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 
+// Ensure the API key is set
 if (!process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY) {
   throw new Error("Missing NEXT_PUBLIC_DEEPGRAM_API_KEY");
 }
 
-// TODO: Seems like this needs a soft rework at some point the deepgram websocket is clearly not designed to stay open this long unless it's nextjs bug??
-// ^ Going to investigate this lol
-
 /**
- * Schema for a single word in the transcription.
+ * Schema definitions for Deepgram response
  */
+
+// Word-level schema
 const WordSchema = z.object({
   word: z.string(),
   start: z.number(),
   end: z.number(),
   confidence: z.number(),
-  // This field is only present if you pass "diarize: true" to the Deepgram API
   speaker: z.number().optional(),
   punctuated_word: z.string(),
 });
 
-/**
- * Schema for an alternative transcription.
- */
+// Alternatives schema
 const AlternativeSchema = z.object({
   transcript: z.string(),
   confidence: z.number(),
   words: z.array(WordSchema),
 });
 
-/**
- * Schema for the overall transcript.
- */
-const TranscriptSchema = z.object({
+// Sentiment segment schema
+const SentimentSegmentSchema = z.object({
+  text: z.string(),
+  start_word: z.number(),
+  end_word: z.number(),
+  sentiment: z.enum(["positive", "neutral", "negative"]),
+  sentiment_score: z.number(),
+});
+
+// Average sentiment schema
+const SentimentAverageSchema = z.object({
+  sentiment: z.enum(["positive", "neutral", "negative"]),
+  sentiment_score: z.number(),
+});
+
+// Sentiments schema
+const SentimentsSchema = z.object({
+  segments: z.array(SentimentSegmentSchema),
+  average: SentimentAverageSchema,
+});
+
+// Channels schema
+const ChannelSchema = z.object({
   alternatives: z.array(AlternativeSchema),
 });
 
+// Results schema (including sentiments)
+const ResultsSchema = z.object({
+  channels: z.array(ChannelSchema),
+  sentiments: SentimentsSchema.optional(),
+});
+
+// Full Deepgram response schema
+const DeepgramResponseSchema = z.object({
+  metadata: z.record(z.unknown()).optional(),
+  results: ResultsSchema,
+});
+
 /**
- * Custom hook for integrating with Deepgram's live transcription service.
+ * Hook: useDeepgramPreRecordedWithSentiment
  *
- * This hook manages the state and functionality related to recording audio, processing it through
- * the Deepgram API, and handling the transcription results. It provides a simple interface for
- * starting, stopping, pausing, and resuming the audio recording and transcription process.
+ * Provides:
+ * - startRecording: Begin recording audio from the user's microphone
+ * - stopRecording: Stop recording and transcribe the recorded audio using Deepgram with sentiment analysis
+ * - isRecording: Boolean indicating if currently recording
+ * - isProcessing: Boolean indicating if currently processing/transcribing
+ * - transcript: Transcribed text
+ * - sentiments: The sentiment analysis results (segments + averages)
  *
  * Usage:
- * ```
  * const {
- *   isRecording,
- *   isPaused,
- *   numVoices,
- *   transcriptEntries,
  *   startRecording,
  *   stopRecording,
- *   pauseRecording,
- *   resumeRecording,
- * } = useDeepgram();
- * ```
- *
- * @returns An object containing the current state and functions to control the transcription process.
- * - `isRecording`: A boolean indicating whether the recording is currently active.
- * - `isPaused`: A boolean indicating whether the recording is paused.
- * - `numVoices`: The number of unique voices detected in the transcription.
- * - `transcriptEntries`: An array of `TranscriptEntry` objects representing the processed transcript.
- * - `startRecording`: A function to start the audio recording and transcription process.
- * - `stopRecording`: A function to stop the audio recording and transcription process.
- * - `pauseRecording`: A function to pause the audio recording.
- * - `resumeRecording`: A function to resume the audio recording.
- *
- * The hook internally manages the connection to the Deepgram API, handles the audio recording using
- * the `MediaRecorder` API, and processes the audio data through the Deepgram live transcription
- * service. It listens for transcription events and updates the state accordingly.
- *
- * The transcription results are provided as an array of `TranscriptEntry` objects, each containing
- * the corresponding transcribed text. The hook also keeps track of the number
- * of unique voices detected in the transcription.
- *
- * Note: The hook requires the `NEXT_PUBLIC_DEEPGRAM_API_KEY` environment variable to be set with a
- * valid Deepgram API key.
- *
- * **/
-export const useDeepgram = () => {
-  const { add, remove, first, size } = useQueue<Blob>([]);
+ *   isRecording,
+ *   isProcessing,
+ *   transcript,
+ *   sentiments
+ * } = useDeepgramPreRecordedWithSentiment();
+ */
+export const useDeepgramPreRecordedWithSentiment = () => {
   const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const connectionRef = useRef<LiveClient | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [transcript, setTranscript] = useState<string>("");
+  const [sentiments, setSentiments] = useState<z.infer<typeof SentimentsSchema> | null>(null);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const [isProcessing, setProcessing] = useState(false);
-  const [transcriptText, setTranscriptText] = useState<string>("");
-
-  const initializeConnection = useCallback(() => {
-      // Check for browser environment and API key
-      if (typeof window === 'undefined' || !process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY) {
-        console.error("Missing NEXT_PUBLIC_DEEPGRAM_API_KEY or not in browser environment");
-        return;
-      }
-
-      
-    const newConnection = createClient(
-      process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY!
-    ).listen.live({
-      model: "nova-2",
-      language: "en-US",
-      smart_format: true,
-      diarize: false,
-    });
-
-    newConnection.on(LiveTranscriptionEvents.Close, (e) => {
-      console.log("Connection closed.");
-      console.error({ e });
-
-      initializeConnection();
-    });
-
-    newConnection.on(LiveTranscriptionEvents.Open, () => {
-      newConnection.keepAlive();
-
-      console.info("Connection opened.");
-
-      newConnection.on(LiveTranscriptionEvents.Transcript, (data) => {
-        const result = TranscriptSchema.parse(data.channel);
-        const alternative = result.alternatives[0];
-
-        setTranscriptText(
-          (prevText) => prevText + " " + alternative.transcript
-        );
-      });
-
-      newConnection.on(LiveTranscriptionEvents.Metadata, (data) => {
-        console.log("Meta data");
-        console.log({ data });
-      });
-
-      newConnection.on(LiveTranscriptionEvents.Error, (err) => {
-        console.error(err);
-      });
-    });
-
-    connectionRef.current = newConnection;
-  }, []);
-
-  useEffect(() => {
-    if (isRecording) {
-      initializeConnection();
-    } else {
-      closeConnection();
-    }
-  }, [initializeConnection, isRecording]);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   /**
-   * Closes the current Deepgram connection.
-   */
-  const closeConnection = useCallback(() => {
-    if (connectionRef.current) {
-      connectionRef.current?.finish();
-    }
-  }, []);
-
-  /**
-   * Cleanup the connection when the component unmounts.
-   */
-  useEffect(() => {
-    return () => {
-      console.log("Is this being invoked some how???");
-      // closeConnection();
-    };
-  }, []);
-
-  /**
-   * Starts the audio recording and transcription process.3
+   * Start recording audio from the user's microphone.
    */
   const startRecording = useCallback(async () => {
+    if (typeof window === "undefined") return;
+
     try {
-      // If the media recorder is not initialized, create a new one
-      if (!mediaRecorderRef.current) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        const mediaRecorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
 
-        mediaRecorderRef.current = mediaRecorder;
+      recordedChunksRef.current = [];
 
-        mediaRecorderRef.current.ondataavailable = (event) => {
-          add(event.data);
-        };
-      }
-      // Reset the transcript text
-      setTranscriptText("");
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
 
-      mediaRecorderRef.current.start(500);
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
       setIsRecording(true);
-      setIsPaused(false);
+      setTranscript("");
+      setSentiments(null);
     } catch (error) {
       console.error("Failed to start recording:", error);
-      alert(
-        "Failed to start recording. Please check your microphone permissions."
-      );
+      toast("Failed to start recording. Please check your microphone permissions.");
     }
-  }, [add]);
+  }, []);
 
   /**
-   * Stops the audio recording and transcription process.
+   * Stop the recording and send the recorded audio to Deepgram for transcription.
    */
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-    }
+  const stopRecording = useCallback(async () => {
+    if (!isRecording || !mediaRecorderRef.current) return;
+
     setIsRecording(false);
-    setIsPaused(false);
-  }, []);
+    mediaRecorderRef.current.stop();
 
-  /**
-   * Pauses the audio recording.
-   */
-  const pauseRecording = useCallback(() => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.pause();
-    }
-    setIsPaused(true);
-  }, []);
+    // Wait for recording to stop
+    mediaRecorderRef.current.onstop = async () => {
+      // Combine all recorded chunks into a single Blob
+      const recordedBlob = new Blob(recordedChunksRef.current, { type: "audio/webm" });
 
-  /**
-   * Resumes the audio recording.
-   */
-  const resumeRecording = useCallback(() => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.resume();
-    }
-    setIsPaused(false);
-  }, []);
+      // Send to Deepgram
+      setIsProcessing(true);
+      try {
+        const client = createClient(process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY!);
 
-  useEffect(() => {
-    const processQueue = async () => {
-      if (size > 0 && !isProcessing) {
-        setProcessing(true);
+        // Convert Blob to ArrayBuffer
+        const audioBuffer = await recordedBlob.arrayBuffer();
 
-        if (isRecording) {
-          try {
-            const blob = first;
-            if (!blob) {
-              // TODO: Capture even in sentry
-              console.error("No blob found");
-              return;
-            }
-            if (!connectionRef.current?.send) {
-              initializeConnection();
-              return;
-            }
-
-            connectionRef.current?.send(blob);
-            remove();
-          } catch (error) {
-            console.error("Failed to send blob to Deepgram:", error);
-            toast("Error transcribing audio");
+        // Call Deepgram’s preRecorded transcription with sentiment analysis enabled
+        const response = await client.transcription.preRecorded(
+          { buffer: audioBuffer, mimetype: "audio/webm" },
+          {
+            model: "nova-2",
+            language: "en-US",
+            smart_format: true,
+            diarize: false,
+            sentiment: true, // Enable sentiment analysis
           }
-        }
+        );
 
-        const waiting = setTimeout(() => {
-          clearTimeout(waiting);
-          setProcessing(false);
-        }, 250);
+        // Parse response with Zod
+        const parsed = DeepgramResponseSchema.parse(response);
+        const firstAlternative = parsed.results.channels[0].alternatives[0];
+
+        setTranscript(firstAlternative.transcript);
+        setSentiments(parsed.results.sentiments ?? null);
+      } catch (error) {
+        console.error("Failed to transcribe pre-recorded file:", error);
+        toast("Error transcribing audio");
+        setTranscript("");
+        setSentiments(null);
+      } finally {
+        setIsProcessing(false);
       }
     };
-
-    processQueue();
-  }, [isProcessing, isRecording, first, remove, size]);
+  }, [isRecording]);
 
   return {
-    isRecording,
-    isPaused,
-    transcriptText,
     startRecording,
     stopRecording,
-    pauseRecording,
-    resumeRecording,
+    isRecording,
+    isProcessing,
+    transcript,
+    sentiments,
   };
 };
+
+/**
+ * Example usage in a component:
+ *
+ * import React from 'react';
+ * import { useDeepgramPreRecordedWithSentiment } from './useDeepgramPreRecordedWithSentiment';
+ *
+ * export function RecordAndTranscribeComponent() {
+ *   const { startRecording, stopRecording, isRecording, isProcessing, transcript, sentiments } =
+ *     useDeepgramPreRecordedWithSentiment();
+ *
+ *   return (
+ *     <div>
+ *       {!isRecording && <button onClick={startRecording}>Start Recording</button>}
+ *       {isRecording && <button onClick={stopRecording}>Stop Recording</button>}
+ *       {isProcessing && <p>Transcribing...</p>}
+ *       {transcript && (
+ *         <div>
+ *           <h3>Transcript:</h3>
+ *           <p>{transcript}</p>
+ *         </div>
+ *       )}
+ *       {sentiments && (
+ *         <div>
+ *           <h3>Sentiment Analysis</h3>
+ *           <h4>Average:</h4>
+ *           <p>Sentiment: {sentiments.average.sentiment}</p>
+ *           <p>Score: {sentiments.average.sentiment_score}</p>
+ *           <h4>Segments:</h4>
+ *           {sentiments.segments.map((seg, idx) => (
+ *             <div key={idx}>
+ *               <p>Text: {seg.text}</p>
+ *               <p>Sentiment: {seg.sentiment}</p>
+ *               <p>Score: {seg.sentiment_score}</p>
+ *             </div>
+ *           ))}
+ *         </div>
+ *       )}
+ *     </div>
+ *   );
+ * }
+ */

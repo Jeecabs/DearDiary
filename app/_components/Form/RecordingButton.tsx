@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useDeepgram } from "@/app/_hooks/useDeepgram";
+import { useDeepgramPreRecordedWithSentiment } from "@/app/_hooks/useDeepgram";
 
 interface RecordingButtonProps {
   isDisabled?: boolean;
@@ -19,8 +19,13 @@ export default function RecordingButton({
   const [time, setTime] = useState(0);
   const [isClient, setIsClient] = useState(false);
 
-  const { isRecording, transcriptText, startRecording, stopRecording } =
-    useDeepgram();
+  // Using the updated hook with sentiment support
+  const {
+    isRecording,
+    transcript: transcriptText, // renamed 'transcript' to 'transcriptText' for consistency
+    startRecording,
+    stopRecording,
+  } = useDeepgramPreRecordedWithSentiment();
 
   useEffect(() => {
     setIsClient(true);
@@ -41,11 +46,12 @@ export default function RecordingButton({
   }, [isRecording]);
 
   // Notify parent component of transcript changes
+  // Note: With preRecorded, the transcriptText is primarily updated after you stop recording.
   useEffect(() => {
-    if (isRecording && onTranscriptChange) {
+    if (onTranscriptChange) {
       onTranscriptChange(transcriptText);
     }
-  }, [transcriptText, isRecording, onTranscriptChange]);
+  }, [transcriptText, onTranscriptChange]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -57,7 +63,7 @@ export default function RecordingButton({
 
   const handleMicClick = async () => {
     if (isRecording) {
-      stopRecording();
+      await stopRecording();
     } else {
       await startRecording();
     }

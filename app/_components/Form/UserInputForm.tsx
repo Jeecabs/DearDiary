@@ -70,7 +70,7 @@ export default function UserInputForm() {
           </div>
 
           <div className="h-12 bg-black/5 dark:bg-white/5 rounded-b-xl relative flex items-center justify-between px-3">
-            {/* Recording button ~ Broken on dev server */}
+            {/* Recording button ~ Broken on dev server ~ Deepgram issue idk more */}
             {process.env.NODE_ENV === "development" ? (
               <div />
             ) : (
