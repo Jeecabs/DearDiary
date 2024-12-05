@@ -2,6 +2,8 @@
 
 import { NextPage } from 'next';
 import {dummyDeepgramResponse3} from './../types/data'
+import { useJournalStore } from '../_store/journalStore';
+import UserComponent from '../_components/UserPage';
 
 const user = {
     name: 'Helen Ramirez',
@@ -22,16 +24,19 @@ function collectSentimentScores(entries) {
 
 
 const Page: NextPage = () => {
+    // const entries = useJournalStore((state) => state.entries);
+    // console.log('entries: ', entries);
 
-    const sentimentScores = collectSentimentScores(dummyDeepgramResponse3.entries);
 
-    console.log(sentimentScores);
+
+    // const sentimentScores = collectSentimentScores(dummyDeepgramResponse3.entries);
+
+    // console.log(sentimentScores);
 
 
 
     return (
-        <div style={{ padding: '10px' }}>
-        </div>
+        <UserComponent entries={dummyDeepgramResponse3}/>
     );
 };
 
