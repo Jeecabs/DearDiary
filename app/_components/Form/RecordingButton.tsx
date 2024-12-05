@@ -4,10 +4,15 @@ import { useEffect } from "react";
 import { Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDeepgramPreRecordedWithSentiment } from "@/app/_hooks/useDeepgram";
+import { z } from "zod";
+import { SentimentsSchema } from "@/app/_schemas/deepgram";
 
 interface RecordingButtonProps {
   isDisabled?: boolean;
-  onTranscriptChange?: (text: string) => void;
+  onTranscriptChange?: (
+    text: string,
+    sentiments: z.infer<typeof SentimentsSchema> | null
+  ) => void;
   onRecordingStatusChange: (isRecording: boolean) => void;
   className?: string;
 }
@@ -21,16 +26,17 @@ export function RecordingButton({
   const {
     isRecording,
     transcript: transcriptText,
+    sentiments,
     startRecording,
     stopRecording,
   } = useDeepgramPreRecordedWithSentiment();
 
-  // Notify parent component of transcript changes
+  // Notify parent component of transcript and sentiment changes
   useEffect(() => {
     if (onTranscriptChange) {
-      onTranscriptChange(transcriptText);
+      onTranscriptChange(transcriptText, sentiments);
     }
-  }, [transcriptText, onTranscriptChange]);
+  }, [transcriptText, sentiments, onTranscriptChange]);
 
   // Notify parent component of recording status changes
   useEffect(() => {
