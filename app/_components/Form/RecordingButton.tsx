@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDeepgramPreRecordedWithSentiment } from "@/app/_hooks/useDeepgram";
@@ -8,58 +8,34 @@ import { useDeepgramPreRecordedWithSentiment } from "@/app/_hooks/useDeepgram";
 interface RecordingButtonProps {
   isDisabled?: boolean;
   onTranscriptChange?: (text: string) => void;
+  onRecordingStatusChange: (isRecording: boolean) => void;
   className?: string;
 }
 
-export default function RecordingButton({
+export function RecordingButton({
   isDisabled = false,
   onTranscriptChange,
+  onRecordingStatusChange,
   className,
 }: RecordingButtonProps) {
-  const [time, setTime] = useState(0);
-  const [isClient, setIsClient] = useState(false);
-
-  // Using the updated hook with sentiment support
   const {
     isRecording,
-    transcript: transcriptText, // renamed 'transcript' to 'transcriptText' for consistency
+    transcript: transcriptText,
     startRecording,
     stopRecording,
   } = useDeepgramPreRecordedWithSentiment();
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Timer for recording duration
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-    if (isRecording) {
-      intervalId = setInterval(() => {
-        setTime((t) => t + 1);
-      }, 1000);
-    } else {
-      setTime(0);
-    }
-
-    return () => clearInterval(intervalId);
-  }, [isRecording]);
-
   // Notify parent component of transcript changes
-  // Note: With preRecorded, the transcriptText is primarily updated after you stop recording.
   useEffect(() => {
     if (onTranscriptChange) {
       onTranscriptChange(transcriptText);
     }
   }, [transcriptText, onTranscriptChange]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
-  };
+  // Notify parent component of recording status changes
+  useEffect(() => {
+    onRecordingStatusChange(isRecording);
+  }, [isRecording, onRecordingStatusChange]);
 
   const handleMicClick = async () => {
     if (isRecording) {
@@ -92,38 +68,6 @@ export default function RecordingButton({
           <Mic className="w-4 h-4 text-black/70 dark:text-white/70" />
         )}
       </button>
-
-      {isRecording && (
-        <>
-          <span
-            className={cn(
-              "font-mono text-sm transition-opacity duration-300",
-              "text-black/70 dark:text-white/70"
-            )}
-          >
-            {formatTime(time)}
-          </span>
-          <div className="h-4 w-64 flex items-center justify-center gap-0.5">
-            {[...Array(48)].map((_, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "w-0.5 rounded-full transition-all duration-300",
-                  "bg-black/50 dark:bg-white/50 animate-pulse"
-                )}
-                style={
-                  isClient
-                    ? {
-                        height: `${20 + Math.random() * 80}%`,
-                        animationDelay: `${i * 0.05}s`,
-                      }
-                    : undefined
-                }
-              />
-            ))}
-          </div>
-        </>
-      )}
     </div>
   );
 }

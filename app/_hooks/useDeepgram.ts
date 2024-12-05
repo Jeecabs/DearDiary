@@ -13,25 +13,21 @@ if (!process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY) {
 /**
  * Schema definitions for Deepgram response
  */
-
-// Word-level schema
 const WordSchema = z.object({
   word: z.string(),
   start: z.number(),
   end: z.number(),
   confidence: z.number(),
-  speaker: z.number().optional(),
+  speaker: z.number().nullish(),
   punctuated_word: z.string(),
 });
 
-// Alternatives schema
 const AlternativeSchema = z.object({
   transcript: z.string(),
   confidence: z.number(),
   words: z.array(WordSchema),
 });
 
-// Sentiment segment schema
 const SentimentSegmentSchema = z.object({
   text: z.string(),
   start_word: z.number(),
@@ -40,32 +36,27 @@ const SentimentSegmentSchema = z.object({
   sentiment_score: z.number(),
 });
 
-// Average sentiment schema
 const SentimentAverageSchema = z.object({
   sentiment: z.enum(["positive", "neutral", "negative"]),
   sentiment_score: z.number(),
 });
 
-// Sentiments schema
 const SentimentsSchema = z.object({
   segments: z.array(SentimentSegmentSchema),
   average: SentimentAverageSchema,
 });
 
-// Channels schema
 const ChannelSchema = z.object({
   alternatives: z.array(AlternativeSchema),
 });
 
-// Results schema (including sentiments)
 const ResultsSchema = z.object({
   channels: z.array(ChannelSchema),
-  sentiments: SentimentsSchema.optional(),
+  sentiments: SentimentsSchema.nullish(),
 });
 
-// Full Deepgram response schema
 const DeepgramResponseSchema = z.object({
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.unknown()).nullish(),
   results: ResultsSchema,
 });
 
@@ -79,16 +70,6 @@ const DeepgramResponseSchema = z.object({
  * - isProcessing: Boolean indicating if currently processing/transcribing
  * - transcript: Transcribed text
  * - sentiments: The sentiment analysis results (segments + averages)
- *
- * Usage:
- * const {
- *   startRecording,
- *   stopRecording,
- *   isRecording,
- *   isProcessing,
- *   transcript,
- *   sentiments
- * } = useDeepgramPreRecordedWithSentiment();
  */
 export const useDeepgramPreRecordedWithSentiment = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -99,9 +80,6 @@ export const useDeepgramPreRecordedWithSentiment = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
 
-  /**
-   * Start recording audio from the user's microphone.
-   */
   const startRecording = useCallback(async () => {
     if (typeof window === "undefined") return;
 
@@ -128,41 +106,32 @@ export const useDeepgramPreRecordedWithSentiment = () => {
     }
   }, []);
 
-  /**
-   * Stop the recording and send the recorded audio to Deepgram for transcription.
-   */
   const stopRecording = useCallback(async () => {
     if (!isRecording || !mediaRecorderRef.current) return;
 
     setIsRecording(false);
     mediaRecorderRef.current.stop();
 
-    // Wait for recording to stop
     mediaRecorderRef.current.onstop = async () => {
-      // Combine all recorded chunks into a single Blob
       const recordedBlob = new Blob(recordedChunksRef.current, { type: "audio/webm" });
 
-      // Send to Deepgram
       setIsProcessing(true);
       try {
-        const client = createClient(process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY!);
+        const deepgram =  createClient(process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY!);
+        const audioBuffer = Buffer.from(await recordedBlob.arrayBuffer());
 
-        // Convert Blob to ArrayBuffer
-        const audioBuffer = await recordedBlob.arrayBuffer();
-
-        // Call Deepgram’s preRecorded transcription with sentiment analysis enabled
-        const response = await client.transcription.preRecorded(
-          { buffer: audioBuffer, mimetype: "audio/webm" },
+        // THIS IS v3 SDK DO NOT CHANGE
+        const response = await deepgram.listen.prerecorded.transcribeFile(
+          audioBuffer,
           {
             model: "nova-2",
             language: "en-US",
             smart_format: true,
             diarize: false,
-            sentiment: true, // Enable sentiment analysis
+            sentiment: true,
           }
         );
 
-        // Parse response with Zod
         const parsed = DeepgramResponseSchema.parse(response);
         const firstAlternative = parsed.results.channels[0].alternatives[0];
 
@@ -188,45 +157,3 @@ export const useDeepgramPreRecordedWithSentiment = () => {
     sentiments,
   };
 };
-
-/**
- * Example usage in a component:
- *
- * import React from 'react';
- * import { useDeepgramPreRecordedWithSentiment } from './useDeepgramPreRecordedWithSentiment';
- *
- * export function RecordAndTranscribeComponent() {
- *   const { startRecording, stopRecording, isRecording, isProcessing, transcript, sentiments } =
- *     useDeepgramPreRecordedWithSentiment();
- *
- *   return (
- *     <div>
- *       {!isRecording && <button onClick={startRecording}>Start Recording</button>}
- *       {isRecording && <button onClick={stopRecording}>Stop Recording</button>}
- *       {isProcessing && <p>Transcribing...</p>}
- *       {transcript && (
- *         <div>
- *           <h3>Transcript:</h3>
- *           <p>{transcript}</p>
- *         </div>
- *       )}
- *       {sentiments && (
- *         <div>
- *           <h3>Sentiment Analysis</h3>
- *           <h4>Average:</h4>
- *           <p>Sentiment: {sentiments.average.sentiment}</p>
- *           <p>Score: {sentiments.average.sentiment_score}</p>
- *           <h4>Segments:</h4>
- *           {sentiments.segments.map((seg, idx) => (
- *             <div key={idx}>
- *               <p>Text: {seg.text}</p>
- *               <p>Sentiment: {seg.sentiment}</p>
- *               <p>Score: {seg.sentiment_score}</p>
- *             </div>
- *           ))}
- *         </div>
- *       )}
- *     </div>
- *   );
- * }
- */
