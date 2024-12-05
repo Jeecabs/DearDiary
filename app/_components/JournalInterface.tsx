@@ -32,13 +32,11 @@ export default function JournalInterface() {
         }
       } catch (error) {
         console.error("Error processing coach response:", error);
-        throw error;
       } finally {
         setIsProcessing(false);
       }
     },
     onError: (error) => {
-      console.error("AI Coach error:", error);
       setIsProcessing(false);
     },
   });
@@ -88,10 +86,10 @@ export default function JournalInterface() {
                 </div>
               ) : (
                 <div className="mt-4 transform -rotate-1 hover:rotate-0 transition-all duration-200">
-                  <div className="bg-[#ffd1dc] p-6 rounded shadow-lg relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#ffb6c1] to-transparent opacity-40"></div>
-                    <div className="absolute bottom-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-[#ffb6c1] to-transparent opacity-40"></div>
-                    <div className="absolute top-0 right-0 w-8 h-8 bg-[#ffe4e8] transform rotate-[-10deg] translate-x-2 -translate-y-2"></div>
+                  <div className="bg-[#e4dceb] p-6 rounded shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#d4cce0] to-transparent opacity-40"></div>
+                    <div className="absolute bottom-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-[#d4cce0] to-transparent opacity-40"></div>
+                    <div className="absolute top-0 right-0 w-8 h-8 bg-[#f0eaf5] transform rotate-[-10deg] translate-x-2 -translate-y-2"></div>
                     <div className="relative">
                       <div
                         className={`text-sm text-gray-600 mb-3 ${caveat.className}`}

@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect } from "react";
 import { Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,27 +52,33 @@ export function RecordingButton({
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <button
-        className={cn(
-          "group w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
-          isRecording
-            ? "bg-none"
-            : "bg-none hover:bg-black/10 dark:hover:bg-white/10",
-          className
-        )}
-        type="button"
-        onClick={handleMicClick}
-        disabled={isDisabled}
-      >
-        {isRecording ? (
-          <div
-            className="w-4 h-4 rounded-sm animate-spin bg-black dark:bg-white"
-            style={{ animationDuration: "3s" }}
-          />
-        ) : (
-          <Mic className="w-4 h-4 text-black/70 dark:text-white/70" />
-        )}
-      </button>
+      <div className="flex justify-center">
+        <button
+          className={cn(
+            "w-32 h-32 rounded-full relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-900",
+            isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+            className
+          )}
+          onClick={handleMicClick}
+          disabled={isDisabled}
+          aria-label={isRecording ? "Stop recording" : "Start recording"}
+        >
+          {/* Layered circular backgrounds */}
+          <div className="absolute inset-0 bg-lime-200 rounded-full"></div>
+          <div className="absolute inset-3 bg-green-200 rounded-full"></div>
+          <div className="absolute inset-5 bg-white rounded-full"></div>
+          <div className="absolute inset-7 bg-emerald-900 rounded-full flex items-center justify-center">
+            {isRecording ? (
+              <div className="w-8 h-8 rounded-sm bg-white animate-spin" 
+                   style={{ animationDuration: "3s" }} />
+            ) : (
+              <Mic className="w-8 h-8 text-white" />
+            )}
+          </div>
+        </button>
+      </div>
     </div>
   );
 }
+
+export default RecordingButton;
