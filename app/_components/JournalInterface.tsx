@@ -7,9 +7,22 @@ import { SentimentsSchema } from "../_schemas/deepgram";
 import { useCompletion } from "ai/react";
 import { z } from "zod";
 import EmptyState from "./EmptyState";
+import { motion } from "framer-motion";
 
 const caveat = Caveat({ subsets: ["latin"] });
 const lora = Lora({ subsets: ["latin"] });
+
+const cardVariants = {
+  hidden: { opacity: 0, x: 20 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: {
+      duration: 0.4,
+      ease: "easeOut",
+    },
+  },
+};
 
 export default function JournalInterface() {
   const { entries, addEntry } = useJournalStore();
@@ -73,8 +86,11 @@ export default function JournalInterface() {
           {entries.length === 0 && <EmptyState />}
           {entries.length > 0 &&
             entries.map((entry) => (
-              <div
+              <motion.div
                 key={entry.id}
+                variants={cardVariants}
+                initial="hidden"
+                animate="visible"
                 className="transform rotate-1 hover:rotate-0 transition-all duration-200"
               >
                 {!entry.isCoach ? (
@@ -89,7 +105,12 @@ export default function JournalInterface() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-4 transform -rotate-1 hover:rotate-0 transition-all duration-200">
+                  <motion.div
+                    variants={cardVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="mt-4 transform -rotate-1 hover:rotate-0 transition-all duration-200"
+                  >
                     <div className="bg-[#e4dceb] p-6 rounded shadow-lg relative overflow-hidden">
                       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#d4cce0] to-transparent opacity-40"></div>
                       <div className="absolute bottom-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-[#d4cce0] to-transparent opacity-40"></div>
@@ -105,9 +126,9 @@ export default function JournalInterface() {
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
-              </div>
+              </motion.div>
             ))}
           <div ref={entriesEndRef} />
         </div>
