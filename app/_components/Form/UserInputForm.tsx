@@ -26,9 +26,13 @@ interface UserInputFormProps {
     content: string,
     sentiment: z.infer<typeof SentimentsSchema> | null
   ) => Promise<void>;
+  isWaitingOnAiResponse?: boolean;
 }
 
-export default function UserInputForm({ onSubmit }: UserInputFormProps) {
+export default function UserInputForm({
+  onSubmit,
+  isWaitingOnAiResponse,
+}: UserInputFormProps) {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -222,8 +226,8 @@ export default function UserInputForm({ onSubmit }: UserInputFormProps) {
 
               {/* Status message */}
               <p className="h-4 text-xs text-black/70 dark:text-white/70 mt-2">
-                {isLoading
-                  ? "Your friend is thinking..."
+                {(isLoading || isWaitingOnAiResponse)
+                  ? "Your friend is Juniper..."
                   : isRecording
                   ? "Listening..."
                   : "Ready to listen!"}
@@ -323,7 +327,7 @@ export default function UserInputForm({ onSubmit }: UserInputFormProps) {
               {/* Status message */}
               <p className="h-4 text-xs text-black/70 dark:text-white/70 mt-2">
                 {isLoading
-                  ? "Your friend is thinking..."
+                  ? "Your friend is Juniper..."
                   : "Ready to submit or speak"}
               </p>
             </motion.div>
