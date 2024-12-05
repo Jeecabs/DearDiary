@@ -27,7 +27,7 @@ export async function transcribeAudio(base64Audio: string) {
     }
   );
 
-  console.log({ response });
+  console.log(JSON.stringify(response));
 
   if (response.error) {
     console.error("Deepgram transcription error:", response.error);
