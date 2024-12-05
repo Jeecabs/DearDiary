@@ -12,7 +12,6 @@ import { motion, AnimatePresence } from "framer-motion";
 const caveat = Caveat({ subsets: ["latin"] });
 const lora = Lora({ subsets: ["latin"] });
 
-// Enhanced animation variants
 const userCardVariants = {
   hidden: { 
     opacity: 0, 
