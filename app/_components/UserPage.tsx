@@ -13,11 +13,11 @@ function collectSentimentScores(entries) {
 
 export default function UserComponent() {
   const { entries } = useJournalStore();
-  console.log('entries: ', entries);
-  console.log('dummyDeepgramResponse3: ', dummyDeepgramResponse3);
+  
+  
   // const sentimentScore = collectSentimentScores(dummyDeepgramResponse3.entries)
   const sentimentScore = collectSentimentScores(entries)
-  console.log('sentimentScore: ', sentimentScore);
+  
   // Sample progress data - in a real app this would come from your backend
 
   // const progressValues = [
