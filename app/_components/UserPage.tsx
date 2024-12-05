@@ -1,5 +1,5 @@
 import Image from "next/image"
-import {dummyDeepgramResponse3} from './../types/data'
+// import {dummyDeepgramResponse3} from './../types/data'
 import { useJournalStore } from "../_store/journalStore";
 
 
@@ -12,8 +12,7 @@ function collectSentimentScores(entries) {
 
 
 export default function UserComponent() {
-  // const { entries } = useJournalStore();
-  const {entries} = dummyDeepgramResponse3
+  const { entries } = useJournalStore();
   
   
   // const sentimentScore = collectSentimentScores(dummyDeepgramResponse3.entries)
