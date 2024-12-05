@@ -7,6 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/app/_hooks/useAutoResizeTextArea";
 import { RecordingButton } from "./RecordingButton";
+import { z } from 'zod'
+import { SentimentsSchema } from "@/app/_schemas/deepgram";
 
 const MIN_HEIGHT = 56;
 const MAX_HEIGHT = 200;
@@ -19,12 +21,17 @@ const formatTime = (seconds: number) => {
     .padStart(2, "0")}`;
 };
 
-export default function UserInputForm() {
+interface UserInputFormProps {
+  onSubmit: (content: string, sentiment: z.infer<typeof SentimentsSchema> | null) => Promise<void>
+}
+
+export default function UserInputForm({ onSubmit }: UserInputFormProps) {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [time, setTime] = useState(0);
   const [isClient, setIsClient] = useState(false);
+  const [currentSentiment, setCurrentSentiment] = useState<z.infer<typeof SentimentsSchema> | null>(null);
 
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: MIN_HEIGHT,
@@ -50,22 +57,26 @@ export default function UserInputForm() {
     return () => clearInterval(intervalId);
   }, [isRecording]);
 
-  const handleSubmit = () => {
-    if (!inputValue.trim()) return;
-    setIsLoading(true);
-    // Simulate an async action
-    setTimeout(() => {
-      setInputValue("");
-      adjustHeight(true);
-      setIsLoading(false);
-    }, 3000);
-  };
-
-  const handleTranscriptChange = useCallback((text: string) => {
-    console.log({ text });
+  const handleTranscriptChange = useCallback((text: string, sentiments: z.infer<typeof SentimentsSchema> | null) => {
     setInputValue(text);
+    setCurrentSentiment(sentiments);
     adjustHeight();
   }, []);
+
+  const handleSubmit = async () => {
+    if (!inputValue.trim()) return;
+    setIsLoading(true);
+    try {
+      await onSubmit(inputValue, currentSentiment);
+      setInputValue("");
+      setCurrentSentiment(null);
+      adjustHeight(true);
+    } catch (error) {
+      console.error('Error submitting entry:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const onRecordingStatusChange = (recording: boolean) => {
     setIsRecording(recording);
