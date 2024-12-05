@@ -12,8 +12,20 @@ import { motion } from "framer-motion";
 const caveat = Caveat({ subsets: ["latin"] });
 const lora = Lora({ subsets: ["latin"] });
 
-const cardVariants = {
-  hidden: { opacity: 0, x: 20 },
+const userCardVariants = {
+  hidden: { opacity: 0, x: -50 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: {
+      duration: 0.4,
+      ease: "easeOut",
+    },
+  },
+};
+
+const coachCardVariants = {
+  hidden: { opacity: 0, x: 50 },
   visible: {
     opacity: 1,
     x: 0,
@@ -80,7 +92,7 @@ export default function JournalInterface() {
   };
 
   return (
-    <div className={`min-h-screen bg-gray-50 ${lora.className}`}>
+    <div className={`min-h-screen bg-[#ECF6D8] ${lora.className}`}>
       <div className="max-w-4xl mx-auto p-4 md:p-8">
         <div className="space-y-6">
           {entries.length === 0 && <EmptyState />}
@@ -88,7 +100,7 @@ export default function JournalInterface() {
             entries.map((entry) => (
               <motion.div
                 key={entry.id}
-                variants={cardVariants}
+                variants={entry.isCoach ? coachCardVariants : userCardVariants}
                 initial="hidden"
                 animate="visible"
                 className="transform rotate-1 hover:rotate-0 transition-all duration-200"
@@ -106,7 +118,9 @@ export default function JournalInterface() {
                   </div>
                 ) : (
                   <motion.div
-                    variants={cardVariants}
+                    variants={
+                      entry.isCoach ? coachCardVariants : userCardVariants
+                    }
                     initial="hidden"
                     animate="visible"
                     className="mt-4 transform -rotate-1 hover:rotate-0 transition-all duration-200"
@@ -134,9 +148,9 @@ export default function JournalInterface() {
         </div>
       </div>
 
-      <div className="sticky bottom-0 bg-gray-50 border-t border-gray-100 p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-gray-50 rounded-lg p-4">
+      <div className="sticky bottom-0 bg-[#E7F1D3] ">
+        <div className="max-w-2xl mx-auto">
+          <div className="bg-[#E7F1D3] rounded-lg p-4">
             <UserInputForm
               onSubmit={handleNewEntry}
               isWaitingOnAiResponse={isProcessing || isLoading}
