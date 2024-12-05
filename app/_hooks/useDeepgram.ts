@@ -99,6 +99,13 @@ export const useDeepgram = () => {
   const [transcriptText, setTranscriptText] = useState<string>("");
 
   const initializeConnection = useCallback(() => {
+      // Check for browser environment and API key
+      if (typeof window === 'undefined' || !process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY) {
+        console.error("Missing NEXT_PUBLIC_DEEPGRAM_API_KEY or not in browser environment");
+        return;
+      }
+
+      
     const newConnection = createClient(
       process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY!
     ).listen.live({

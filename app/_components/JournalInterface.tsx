@@ -5,7 +5,7 @@ import { JournalEntry, Insight } from '../_types/journal'
 import { Caveat, Lora } from 'next/font/google'
 import { Card, CardContent } from "@/components/ui/card"
 import { UserCircle, Bot } from 'lucide-react'
-import UserInputForm from './NewEntryForm'
+import UserInputForm from './Form/NewEntryForm'
 
 const caveat = Caveat({ subsets: ['latin'] })
 const lora = Lora({ subsets: ['latin'] })
