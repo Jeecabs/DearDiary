@@ -3,6 +3,7 @@
 import { createClient } from "@deepgram/sdk";
 import { DeepgramResponseSchema } from "./_schemas/deepgram";
 
+// TODO: This doesn't need to be public anymore :)
 const deepgramApiKey = process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY || "";
 const deepgram = createClient(deepgramApiKey);
 
@@ -28,5 +29,10 @@ export async function transcribeAudio(base64Audio: string) {
 
   console.log({ response });
 
-  return DeepgramResponseSchema.parse(response);
+  if (response.error) {
+    console.error("Deepgram transcription error:", response.error);
+    throw new Error(response.error.message);
+  }
+
+  return DeepgramResponseSchema.parse(response.result);
 }
