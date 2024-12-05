@@ -36,7 +36,7 @@ const Page: NextPage = () => {
 
 
     return (
-        <UserComponent entries={dummyDeepgramResponse3}/>
+        <UserComponent/>
     );
 };
 

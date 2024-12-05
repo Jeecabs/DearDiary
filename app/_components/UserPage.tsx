@@ -1,14 +1,34 @@
 import Image from "next/image"
+import {dummyDeepgramResponse3} from './../types/data'
+import { useJournalStore } from "../_store/journalStore";
 
-export default function UserComponent({entries}) {
+
+function collectSentimentScores(entries) {
+  return entries
+    .filter(entry => entry.sentiment && entry.sentiment.segments) // Ensure sentiment and segments exist
+    .map(entry => entry.sentiment.segments.map(segment => segment.sentiment_score)) // Map each segment's sentiment_score
+    .flat(); // Flatten the nested arrays into a single array
+}
+
+
+export default function UserComponent() {
+  const { entries } = useJournalStore();
+  console.log('entries: ', entries);
+  console.log('dummyDeepgramResponse3: ', dummyDeepgramResponse3);
+  // const sentimentScore = collectSentimentScores(dummyDeepgramResponse3.entries)
+  const sentimentScore = collectSentimentScores(entries)
+  console.log('sentimentScore: ', sentimentScore);
   // Sample progress data - in a real app this would come from your backend
-  const progressValues = [
-    0.1, 0.3, 0.2, 0.8, 0.5, 
-    0.6, 0.4, 0.9, 0.2, 0.7,
-    0.3, 0.9, 0.6, 0.4, 0.8, 
-    0.1, 0.6, 0.3, 0.5, 0.8, 
-    0.9, 0.2, 0.6, 0.2
-  ]
+
+  // const progressValues = [
+  //   0.1, 0.3, 0.2, 0.8, 0.5, 
+  //   0.6, 0.4, 0.9, 0.2, 0.7,
+  //   0.3, 0.9, 0.6, 0.4, 0.8, 
+  //   0.1, 0.6, 0.3, 0.5, 0.8, 
+  //   0.9, 0.2, 0.6, 0.2
+  // ]
+  const progressValues = sentimentScore
+
 
   // Function to map values to colors
   const getColor = (value) => {
