@@ -1,159 +1,100 @@
 "use client";
 
-import { createClient } from "@deepgram/sdk";
-import { useState, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
+import { transcribeAudio } from "../actions";
 import { z } from "zod";
-import { toast } from "sonner";
+import { SentimentsSchema } from "../_schemas/deepgram";
 
-// Ensure the API key is set
-if (!process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY) {
-  throw new Error("Missing NEXT_PUBLIC_DEEPGRAM_API_KEY");
+interface UseDeepgramPreRecordedWithSentimentReturn {
+  isRecording: boolean;
+  transcript: string;
+  sentiments: z.infer<typeof SentimentsSchema> | null;
+  startRecording: () => Promise<void>;
+  stopRecording: () => Promise<void>;
 }
 
 /**
- * Schema definitions for Deepgram response
+ * Hook that records audio from the user, sends it to a server action for
+ * transcription and sentiment analysis using Deepgram, and returns the results.
+ * This preserves the original behavior of your hook while pushing the Deepgram logic server-side.
  */
-const WordSchema = z.object({
-  word: z.string(),
-  start: z.number(),
-  end: z.number(),
-  confidence: z.number(),
-  speaker: z.number().nullish(),
-  punctuated_word: z.string(),
-});
-
-const AlternativeSchema = z.object({
-  transcript: z.string(),
-  confidence: z.number(),
-  words: z.array(WordSchema),
-});
-
-const SentimentSegmentSchema = z.object({
-  text: z.string(),
-  start_word: z.number(),
-  end_word: z.number(),
-  sentiment: z.enum(["positive", "neutral", "negative"]),
-  sentiment_score: z.number(),
-});
-
-const SentimentAverageSchema = z.object({
-  sentiment: z.enum(["positive", "neutral", "negative"]),
-  sentiment_score: z.number(),
-});
-
-const SentimentsSchema = z.object({
-  segments: z.array(SentimentSegmentSchema),
-  average: SentimentAverageSchema,
-});
-
-const ChannelSchema = z.object({
-  alternatives: z.array(AlternativeSchema),
-});
-
-const ResultsSchema = z.object({
-  channels: z.array(ChannelSchema),
-  sentiments: SentimentsSchema.nullish(),
-});
-
-const DeepgramResponseSchema = z.object({
-  metadata: z.record(z.unknown()).nullish(),
-  results: ResultsSchema,
-});
-
-/**
- * Hook: useDeepgramPreRecordedWithSentiment
- *
- * Provides:
- * - startRecording: Begin recording audio from the user's microphone
- * - stopRecording: Stop recording and transcribe the recorded audio using Deepgram with sentiment analysis
- * - isRecording: Boolean indicating if currently recording
- * - isProcessing: Boolean indicating if currently processing/transcribing
- * - transcript: Transcribed text
- * - sentiments: The sentiment analysis results (segments + averages)
- */
-export const useDeepgramPreRecordedWithSentiment = () => {
+export function useDeepgramPreRecordedWithSentiment(): UseDeepgramPreRecordedWithSentimentReturn {
   const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [transcript, setTranscript] = useState<string>("");
-  const [sentiments, setSentiments] = useState<z.infer<typeof SentimentsSchema> | null>(null);
+  const [transcript, setTranscript] = useState("");
+  const [sentiments, setSentiments] =
+    useState<UseDeepgramPreRecordedWithSentimentReturn["sentiments"]>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
+  const chunksRef = useRef<Blob[]>([]);
 
-  const startRecording = useCallback(async () => {
-    if (typeof window === "undefined") return;
+  const startRecording = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mediaRecorder = new MediaRecorder(stream);
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-
-      recordedChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.start();
-      mediaRecorderRef.current = mediaRecorder;
-      setIsRecording(true);
-      setTranscript("");
-      setSentiments(null);
-    } catch (error) {
-      console.error("Failed to start recording:", error);
-      toast("Failed to start recording. Please check your microphone permissions.");
-    }
-  }, []);
-
-  const stopRecording = useCallback(async () => {
-    if (!isRecording || !mediaRecorderRef.current) return;
-
-    setIsRecording(false);
-    mediaRecorderRef.current.stop();
-
-    mediaRecorderRef.current.onstop = async () => {
-      const recordedBlob = new Blob(recordedChunksRef.current, { type: "audio/webm" });
-
-      setIsProcessing(true);
-      try {
-        const deepgram =  createClient(process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY!);
-        const audioBuffer = Buffer.from(await recordedBlob.arrayBuffer());
-
-        // THIS IS v3 SDK DO NOT CHANGE
-        const response = await deepgram.listen.prerecorded.transcribeFile(
-          audioBuffer,
-          {
-            model: "nova-2",
-            language: "en-US",
-            smart_format: true,
-            diarize: false,
-            sentiment: true,
-          }
-        );
-
-        const parsed = DeepgramResponseSchema.parse(response);
-        const firstAlternative = parsed.results.channels[0].alternatives[0];
-
-        setTranscript(firstAlternative.transcript);
-        setSentiments(parsed.results.sentiments ?? null);
-      } catch (error) {
-        console.error("Failed to transcribe pre-recorded file:", error);
-        toast("Error transcribing audio");
-        setTranscript("");
-        setSentiments(null);
-      } finally {
-        setIsProcessing(false);
-      }
+    mediaRecorder.ondataavailable = (event) => {
+      chunksRef.current.push(event.data);
     };
-  }, [isRecording]);
+
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+      chunksRef.current = [];
+
+      const base64Audio = await blobToBase64(blob);
+
+      // Call server action for transcription
+      const result = await transcribeAudio(base64Audio);
+
+      // Extract transcript and sentiments
+      const { channels } = result.results;
+      const { sentiments: sentimentsData } = result.results;
+
+      // Usually only one channel
+      const firstChannel = channels[0];
+      const firstAlternative = firstChannel.alternatives[0];
+      setTranscript(firstAlternative.transcript);
+      setSentiments(
+        sentimentsData
+          ? {
+              segments: sentimentsData.segments,
+              average: sentimentsData.average,
+            }
+          : null
+      );
+    };
+
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = async () => {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
 
   return {
-    startRecording,
-    stopRecording,
     isRecording,
-    isProcessing,
     transcript,
     sentiments,
+    startRecording,
+    stopRecording,
   };
-};
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Failed to read blob."));
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64String = dataUrl.split(",")[1];
+      resolve(base64String);
+    };
+    reader.readAsDataURL(blob);
+  });
+}

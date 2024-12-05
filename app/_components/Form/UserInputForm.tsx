@@ -62,8 +62,9 @@ export default function UserInputForm() {
   };
 
   const handleTranscriptChange = (text: string) => {
-    setInputValue(text);
-    adjustHeight();
+    console.log({ text });
+    // setInputValue(text);
+    // adjustHeight();
   };
 
   const onRecordingStatusChange = (recording: boolean) => {
