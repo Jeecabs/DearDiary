@@ -69,7 +69,11 @@ export default function JournalInterface() {
   });
 
   useEffect(() => {
-    entriesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (entries.length > 0) {
+      entriesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      window.scrollBy(0, 100);
+    }
   }, [entries]);
 
   const handleNewEntry = async (
