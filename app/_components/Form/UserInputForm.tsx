@@ -62,6 +62,7 @@ export default function UserInputForm() {
   };
 
   const handleTranscriptChange = useCallback((text: string) => {
+    console.log({ text });
     setInputValue(text);
     adjustHeight();
   }, []);
