@@ -9,10 +9,12 @@ interface JournalState {
     date: Date;
     content: string;
     sentiment: z.infer<typeof SentimentsSchema> | null;
+    isCoach: boolean;
   }>;
   addEntry: (
     content: string,
-    sentiment: z.infer<typeof SentimentsSchema> | null
+    sentiment: z.infer<typeof SentimentsSchema> | null,
+    isCoach?: boolean
   ) => void;
 }
 
@@ -20,12 +22,13 @@ export const useJournalStore = create<JournalState>()(
   persist(
     (set) => ({
       entries: [],
-      addEntry: (content, sentiment) => {
+      addEntry: (content, sentiment, isCoach = false) => {
         const newEntry = {
           id: Date.now().toString(),
           date: new Date(),
           content: content.trim(),
           sentiment,
+          isCoach,
         };
         set((state) => ({
           entries: [...state.entries, newEntry],
