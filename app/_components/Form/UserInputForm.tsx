@@ -1,7 +1,7 @@
 "use client";
 
 // UserInputForm.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Send } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -61,11 +61,11 @@ export default function UserInputForm() {
     }, 3000);
   };
 
-  const handleTranscriptChange = (text: string) => {
+  const handleTranscriptChange = useCallback((text: string) => {
     console.log({ text });
     // setInputValue(text);
     // adjustHeight();
-  };
+  }, []);
 
   const onRecordingStatusChange = (recording: boolean) => {
     setIsRecording(recording);
