@@ -51,12 +51,12 @@ export default function UserComponent() {
         {/* Profile Section */}
         <div className="flex items-center gap-4 mb-8">
           <div className="relative w-16 h-16 rounded-full overflow-hidden">
-            {/* <Image
+            <Image
               src="/Helen_Euc.png"
               alt="Profile picture"
               fill
               className="object-cover"
-            /> */}
+            />
           </div>
           <h2 className="text-[#1F2937] text-2xl font-medium">
             Helen&apos;s<br />progress
