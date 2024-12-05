@@ -11,4 +11,4 @@ export interface JournalEntry {
     content: string;
   }
   
-  
+    // ^ THIS IS AI SLOP NOT THE FINAL TYPES CAN CHANGE EZ PZ
