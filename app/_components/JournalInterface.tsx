@@ -81,12 +81,6 @@ export default function JournalInterface() {
                   <div className="absolute bottom-0 right-0 w-full h-1 bg-gradient-to-r from-transparent via-[#c8e89e] to-transparent opacity-40"></div>
                   <div className="absolute top-0 right-0 w-8 h-8 bg-[#e8ffcc] transform rotate-[-10deg] translate-x-2 -translate-y-2"></div>
                   <div className="relative">
-                    <div
-                      className={`text-sm text-gray-600 mb-3 ${caveat.className}`}
-                    >
-                      {new Date(entry.date).toLocaleDateString()} at{" "}
-                      {new Date(entry.date).toLocaleTimeString()}
-                    </div>
                     <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">
                       {entry.content}
                     </p>
