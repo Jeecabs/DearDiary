@@ -25,13 +25,13 @@ function collectSentimentScores(entries) {
 
 const Page: NextPage = () => {
     // const entries = useJournalStore((state) => state.entries);
-    // console.log('entries: ', entries);
+    // 
 
 
 
     // const sentimentScores = collectSentimentScores(dummyDeepgramResponse3.entries);
 
-    // console.log(sentimentScores);
+    // 
 
 
 
